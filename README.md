@@ -1,5 +1,7 @@
 # DEEP SIX — Facility K-22
 
+**▶ Play it: <https://game-chi-ten-84.vercel.app>**
+
 An 8-bit top-down escape game. You are trapped in a flooded research facility
 with Specimen 22. Find three keycards, unseal the exit, and get out before it
 finds you.
@@ -152,8 +154,29 @@ Balance constants live in one exported `TUNING` object at the top of
 
 ## Deploying
 
-The whole game is static files — no build step, no dependencies. Drop the
-directory on any static host:
+Live on Vercel at <https://game-chi-ten-84.vercel.app>, auto-deploying from
+`main`. Push and it ships:
+
+```bash
+git push origin main
+```
+
+To deploy manually, or to a different host — the whole game is static files, no
+build step and no dependencies:
+
+```bash
+vercel deploy --prod
+```
+
+`vercel.json` sets `Cache-Control: must-revalidate` on everything. Filenames are
+not content-hashed, so without it a redeploy would serve stale ES modules to
+anyone who had already loaded the game.
+
+Note that Vercel's *deployment-specific* URLs (`game-<hash>-anubvkr.vercel.app`)
+sit behind Deployment Protection and return a 302 to an SSO login. The public
+link is the project alias above.
+
+Any other static host works too:
 
 ```bash
 npx vercel deploy --prod
