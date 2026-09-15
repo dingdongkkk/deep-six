@@ -215,8 +215,8 @@ function drawHud(g, game) {
       // off longer messages.
       const w2 = textWidth(game.message);
       g.fillStyle = '#000000';
-      g.fillRect(VIEW_W / 2 - w2 / 2 - 4, VIEW_H - 66, w2 + 8, 12);
-      drawTextCentered(g, game.message, VIEW_W / 2, VIEW_H - 64, col);
+      g.fillRect(VIEW_W / 2 - w2 / 2 - 4, VIEW_H - 78, w2 + 8, 12);
+      drawTextCentered(g, game.message, VIEW_W / 2, VIEW_H - 76, col);
     }
   }
 }

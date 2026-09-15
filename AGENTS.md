@@ -242,7 +242,7 @@ Things that cost real debugging time here.
   `TUNING`. Mutating one will not affect the other, and a sweep that does this
   silently measures nothing. Always go through `T.TUNING`.
 - **HUD z-order.** The minimap is drawn after the message line. Messages sit at
-  `VIEW_H - 64` to clear it; move them lower and long messages get clipped.
+  `VIEW_H - 76` to clear it and the sonar label; move them lower and long messages get clipped.
 - **Sprites bake at module load** and need `document`. Anything importing
   `sprites.js` needs a DOM.
 - **`sfx.*` no-ops safely before `initAudio()`**, so the headless harness can run
