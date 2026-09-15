@@ -1,7 +1,7 @@
 import { SPR } from './sprites.js';
 import { drawText, drawTextCentered, textWidth, CHAR_W } from './font.js';
 import { TILE, MAP_W, MAP_H, FLOOR, isSolid, roomAt, EXIT } from './map.js';
-import { VIEW_W, VIEW_H } from './game.js';
+import { VIEW_W, VIEW_H, TUNING } from './game.js';
 import { isEnabled } from './audio.js';
 
 const MAP_PX_W = MAP_W * TILE;
@@ -30,7 +30,9 @@ export function render(g, game) {
 
   const cam = camera(game);
   drawWorld(g, game, cam);
+  drawFlood(g, game, cam);
   drawLighting(g, game, cam);
+  drawPlayerBubbles(g, game, cam);
   if (game.beaconT > 0) drawBeacon(g, game, cam);
   drawHud(g, game);
   drawMinimap(g, game);
@@ -149,6 +151,62 @@ function drawLighting(g, game, cam) {
   }
 }
 
+function drawFlood(g, game, cam) {
+  if (game.waterLevel <= 0) return;
+  const top = Math.round(MAP_PX_H * (1 - game.waterLevel) - cam.y);
+  if (top >= VIEW_H) return;
+  const waterTop = Math.max(0, top);
+  const pulse = Math.sin(game.time * 3.2);
+  g.save();
+  const water = g.createLinearGradient(0, waterTop, 0, VIEW_H);
+  water.addColorStop(0, '#0b6680');
+  water.addColorStop(0.28, '#063d52');
+  water.addColorStop(1, '#021c2c');
+  g.globalAlpha = 0.17 + game.waterLevel * 0.16;
+  g.fillStyle = water;
+  g.fillRect(0, waterTop, VIEW_W, VIEW_H - waterTop);
+  g.globalAlpha = 0.8;
+  g.fillStyle = '#29e0ff';
+  if (top >= 0) g.fillRect(0, top, VIEW_W, 1);
+  for (let x = -20; x < VIEW_W + 20; x += 20) {
+    const wave = Math.round(Math.sin(game.time * 3 + x * 0.12) * 2);
+    g.fillRect(x + wave, waterTop + 3, 9, 1);
+    g.globalAlpha = 0.3;
+    g.fillRect(x + 10 - wave, waterTop + 7, 6, 1);
+    g.globalAlpha = 0.8;
+  }
+  // Bubbles and dim caustic streaks move below the waterline.
+  for (let i = 0; i < 22; i++) {
+    const span = Math.max(4, VIEW_H - waterTop);
+    const bx = (i * 47 + Math.floor(game.time * (7 + i % 4))) % VIEW_W;
+    const by = waterTop + ((i * 29 - game.time * (10 + i % 3) + 5000) % span);
+    g.globalAlpha = 0.22 + (i % 3) * 0.09;
+    g.fillRect(Math.round(bx), Math.round(by), i % 4 === 0 ? 2 : 1, 1);
+  }
+  g.globalAlpha = 0.08 + game.waterLevel * 0.05;
+  for (let y = waterTop + 14; y < VIEW_H; y += 22) {
+    g.fillRect(Math.round((game.time * 5 + y * 3) % VIEW_W) - 24,
+      y + Math.round(pulse), 24, 1);
+  }
+  g.restore();
+}
+
+function drawPlayerBubbles(g, game, cam) {
+  if (!game.inWater || game.state === 'dead') return;
+  const px = Math.round(game.player.x - cam.x);
+  const py = Math.round(game.player.y - cam.y);
+  g.save();
+  g.strokeStyle = '#29e0ff';
+  for (let i = 0; i < 5; i++) {
+    const phase = (game.time * (0.7 + i * 0.04) + i * 0.21) % 1;
+    const x = px + 5 + Math.round(Math.sin(phase * 8 + i) * 4);
+    const y = py - 7 - Math.round(phase * 26);
+    g.globalAlpha = (1 - phase) * 0.75;
+    g.strokeRect(x + 0.5, y + 0.5, i % 2 ? 1 : 2, i % 2 ? 1 : 2);
+  }
+  g.restore();
+}
+
 function LIGHT(game) {
   return 82 + (game.player.sprinting ? 10 : 0);
 }
@@ -203,9 +261,27 @@ function drawHud(g, game) {
   g.fillRect(pipX + 2, VIEW_H - 8, 10, 2);
   if (!ready) drawText(g, 'SPENT', pipX + 18, VIEW_H - 11, 'd');
   drawText(g, fmt(game.elapsed), 207, VIEW_H - 11, 'g');
+  const meter = game.oxygen;
+  drawText(g, 'O2', 151, VIEW_H - 11, meter < 30 ? 'r' : 'c');
+  g.fillStyle = '#00230d';
+  g.fillRect(168, VIEW_H - 10, 34, 6);
+  g.fillStyle = meter < 30 ? '#ff3355' : '#29e0ff';
+  g.fillRect(169, VIEW_H - 9, Math.round(32 * meter / 100), 4);
+  if (meter < 30 && Math.floor(game.time * 5) % 2 === 0) {
+    drawText(g, 'O2 LOW', 160, VIEW_H - 20, 'r');
+  }
   const alert = game.octo.mode === 'hunt';
   drawText(g, alert ? '!! CONTACT' : 'SONAR LIVE', 251, 178, alert ? 'r' : 'm');
   drawText(g, isEnabled() ? 'M AUDIO ON' : 'M MUTED', 4, 18, 'm');
+  if (game.waterLevel > 0 && game.waterLevel < 1) {
+    const remain = Math.max(0, Math.ceil(TUNING.FLOOD_FULL - game.elapsed));
+    const warning = `FLOOD ${fmt(remain)}`;
+    const critical = game.waterLevel >= 0.72;
+    const visible = !critical || Math.floor(game.time * 6) % 2 === 0;
+    g.fillStyle = '#000000';
+    g.fillRect(VIEW_W - textWidth(warning) - 9, 16, textWidth(warning) + 9, 12);
+    if (visible) drawText(g, warning, VIEW_W - textWidth(warning) - 4, 18, critical ? 'r' : 'c');
+  }
 
   if (game.messageT > 0) {
     const alphaBlink = game.messageT > 0.4 || Math.floor(game.time * 10) % 2 === 0;
@@ -406,8 +482,9 @@ function drawTitle(g, game) {
 function drawDead(g, game) {
   g.fillStyle = 'rgba(0,0,0,0.72)';
   g.fillRect(0, 0, VIEW_W, VIEW_H);
-  drawTextCentered(g, 'TAKEN', VIEW_W / 2, 74, 'r', 3);
-  drawTextCentered(g, 'SPECIMEN 22 HAS YOU', VIEW_W / 2, 106, 'w');
+  const drowned = game.deathCause === 'oxygen';
+  drawTextCentered(g, drowned ? 'DROWNED' : 'TAKEN', VIEW_W / 2, 74, 'r', 3);
+  drawTextCentered(g, drowned ? 'OXYGEN RESERVE DEPLETED' : 'SPECIMEN 22 HAS YOU', VIEW_W / 2, 106, 'w');
   drawTextCentered(g, `KEYCARDS ${game.collected}/3   SCORE ${game.score}`, VIEW_W / 2, 128, 'm');
   drawTextCentered(g, `TIME ${fmt(game.elapsed)}`, VIEW_W / 2, 140, 'm');
   if (Math.floor(game.time * 2) % 2 === 0) {

@@ -52,7 +52,7 @@ const BLOCKS = [
 
 export const SPAWN = { x: 7, y: 6 };
 export const OCTO_SPAWN = { x: 52, y: 19 };
-export const EXIT = { x: 56, y: 34 };
+export const EXIT = { x: 57, y: 20 };
 
 // One keycard per far corner of the facility, so all three must be hunted down.
 export const KEY_SPOTS = [

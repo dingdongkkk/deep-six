@@ -6,7 +6,7 @@ import {
   lineOfSight, validate, ROOMS, SPAWN, OCTO_SPAWN, EXIT, KEY_SPOTS, TERMINAL_SPOTS,
 } from './map.js';
 import {
-  initAudio, unlockAudio, startMusic, setIntensity, sfx, setEnabled, isEnabled,
+  initAudio, unlockAudio, startMusic, setIntensity, setFloodLevel, sfx, setEnabled, isEnabled,
 } from './audio.js';
 import { rollPuzzles } from './puzzles.js';
 
@@ -18,12 +18,12 @@ export const VIEW_H = 240;
 // can sweep them without editing source. Values here are the tuned defaults.
 // ---------------------------------------------------------------------------
 export const TUNING = {
-  PLAYER_WALK: 80,
-  PLAYER_SPRINT: 134,
+  PLAYER_WALK: 74,
+  PLAYER_SPRINT: 118,
 
-  OCTO_PATROL: 54,
-  OCTO_SEARCH: 68,
-  OCTO_HUNT_SPEED: 82,     // just OVER walk (80), so a chase cannot be walked off -
+  OCTO_PATROL: 47,
+  OCTO_SEARCH: 59,
+  OCTO_HUNT_SPEED: 72,     // just under walk (74); sprint still matters for creating space
                            // you must spend sprint, cover or the dash. Measured win
                            // rate by speed: 78->53%, 82->43%, 84->31%, 86->19%.
                            // Past ~86 it collapses into an unwinnable footrace.
@@ -51,6 +51,14 @@ export const TUNING = {
   BROADCAST_REAR: 1.15,    // telegraph before it charges
   NOISE_HUNT: 2.2,         // hunt seconds granted by a wrong console entry
   NOISE_REAR: 0.5,
+
+  // Competitive flood clock. The typical successful run is ~83s, so water
+  // appears during the final card push while the hard oxygen deadline remains
+  // far enough out for skilled recoveries.
+  FLOOD_START: 50,
+  FLOOD_FULL: 120,
+  OXYGEN_TIME: 28,
+  OXYGEN_RECOVER: 8,
 };
 
 const LIGHT_RADIUS = 82;
@@ -143,6 +151,14 @@ export class Game {
     this.collected = 0;
     this.doorOpen = false;
     this.elapsed = 0;
+    this.waterLevel = 0;
+    this.oxygen = 100;
+    this.inWater = false;
+    this.floodWarned = false;
+    this.floodFullWarned = false;
+    this.floodCriticalWarned = false;
+    this.deathCause = '';
+    setFloodLevel(0);
     this.message = '';
     this.messageT = 0;
     this.danger = 0;
@@ -236,6 +252,8 @@ export class Game {
     // while you stand at the console with your back to the room.
     if (this.state === 'puzzle') {
       this.elapsed += dt;
+      this.updateFlood(dt);
+      if (this.state === 'dead') return;
       if (this.messageT > 0) this.messageT -= dt;
       if (this.puzzleFlash > 0) this.puzzleFlash -= dt;
       if (this.beaconT > 0) this.beaconT -= dt;
@@ -259,6 +277,8 @@ export class Game {
     }
 
     this.elapsed += dt;
+    this.updateFlood(dt);
+    if (this.state === 'dead') return;
     if (this.messageT > 0) this.messageT -= dt;
     if (this.puzzleFlash > 0) this.puzzleFlash -= dt;
     if (this.beaconT > 0) this.beaconT -= dt;
@@ -269,6 +289,37 @@ export class Game {
     this.updatePickups();
     this.updateExplored();
     this.updateDanger();
+  }
+
+  updateFlood(dt) {
+    const wasDry = this.waterLevel === 0;
+    this.waterLevel = Math.max(0, Math.min(1,
+      (this.elapsed - TUNING.FLOOD_START) / (TUNING.FLOOD_FULL - TUNING.FLOOD_START)));
+
+    if (wasDry && this.waterLevel > 0 && !this.floodWarned) {
+      this.floodWarned = true;
+      this.say('!! HULL BREACH - WATER RISING', 3.2);
+      sfx.floodAlarm();
+    }
+    if (this.waterLevel >= 0.72 && !this.floodCriticalWarned) {
+      this.floodCriticalWarned = true;
+      this.say('!! WATER 75% - SEEK ESCAPE ROUTE', 3.2);
+      sfx.floodAlarm();
+    }
+    if (this.waterLevel >= 1 && !this.floodFullWarned) {
+      this.floodFullWarned = true;
+      this.say('!! FACILITY FLOODED - OXYGEN ACTIVE', 3.2);
+      sfx.floodAlarm();
+    }
+    const surfaceY = MAP_H * TILE * (1 - this.waterLevel);
+    this.inWater = this.waterLevel > 0 && this.player.y >= surfaceY;
+    if (this.inWater) {
+      this.oxygen = Math.max(0, this.oxygen - (100 / TUNING.OXYGEN_TIME) * dt);
+      if (this.oxygen <= 0) this.die('oxygen');
+    } else {
+      this.oxygen = Math.min(100, this.oxygen + TUNING.OXYGEN_RECOVER * dt);
+    }
+    setFloodLevel(this.waterLevel);
   }
 
   updatePlayer(dt) {
@@ -326,7 +377,8 @@ export class Game {
       p.stepT -= dt;
       if (p.stepT <= 0) {
         p.stepT = p.sprinting ? 0.22 : 0.34;
-        sfx.step();
+        if (this.inWater) sfx.swim();
+        else sfx.step();
       }
     } else {
       p.frame = 0;
@@ -635,8 +687,9 @@ export class Game {
     this.say(text, quiet ? 1.8 : 3);
   }
 
-  die() {
+  die(cause = 'specimen') {
     this.state = 'dead';
+    this.deathCause = cause;
     this.puzzle = null;
     this.activeCard = null;
     this.lastTransition = this.time;

@@ -10,3 +10,9 @@
 # Node (not used today, but keeps stray installs out)
 node_modules/
 npm-debug.log*
+
+# Browser-tool scratch output
+.playwright-cli/
+
+# Vercel
+.vercel/
