@@ -217,8 +217,9 @@ The timing puzzle returns `null` — drive it with `inZone()` instead.
 | Skill gradient | fast solver 58% / average 36% / slow solver 27% |
 | Deaths peak at | 2 keycards |
 
-`OCTO_HUNT_SPEED` dominates everything: 78 -> 53%, 82 -> 43%, 84 -> 31%,
-86 -> 19%. It sits at **82**, just above `PLAYER_WALK` (80).
+`OCTO_HUNT_SPEED` dominates everything. After the flood and slower movement
+pass it sits at **72**, just below `PLAYER_WALK` (74); the current measured win
+rate is 36.9% across 640 trials.
 
 ## 10. Traps — read before editing
 

@@ -14,6 +14,7 @@ let step = 0;
 let nextNoteTime = 0;
 let tempo = 0.145;      // seconds per 16th
 let intensity = 0;      // 0 = calm, 1 = octopus on you
+let floodLevel = 0;     // 0 = dry, 1 = fully submerged
 let timer = null;
 let drumBuffer = null;
 
@@ -116,6 +117,11 @@ function noise(dur, vol, filterHz) {
 
 export const sfx = {
   step()      { blip('square', 110, 80, 0.05, 0.05); },
+  swim()      { blip('sine', 150, 95, 0.09, 0.035); noise(0.07, 0.025, 520); },
+  floodAlarm(){ [0, 240, 480].forEach((delay, i) => setTimeout(() => {
+                  blip('sawtooth', i === 2 ? 760 : 520, i === 2 ? 380 : 760, 0.22, 0.11);
+                  noise(0.16, 0.05, 1000);
+                }, delay)); },
   pickup()    { blip('square', 660, 1320, 0.10, 0.18);
                 setTimeout(() => blip('square', 990, 1760, 0.12, 0.16), 90); },
   terminal()  { blip('square', 880, 880, 0.04, 0.10);
@@ -156,6 +162,10 @@ export function setIntensity(v) {
   tempo = 0.145 - 0.045 * intensity;
 }
 
+export function setFloodLevel(v) {
+  floodLevel = Math.max(0, Math.min(1, v));
+}
+
 function scheduler() {
   if (!ctx || !started || ctx.state !== 'running') return;
   // A background tab can miss minutes of ticks. Never replay that backlog.
@@ -193,6 +203,14 @@ function scheduleStep(i, time) {
   }
   if (intensity > 0.8 && beat % 4 === 0) {
     voice('square', NOTE[chord[2]] * 2, time, tempo * 0.6, 0.065);
+  }
+  // Rising-water layer: low pressure pulses and increasingly urgent sonar ticks.
+  if (floodLevel > 0 && beat % 4 === 0) {
+    voice('sawtooth', NOTE['E2'] * (1 - floodLevel * 0.18), time,
+      tempo * 2.5, 0.025 + floodLevel * 0.035, NOTE['A1']);
+  }
+  if (floodLevel > 0.55 && beat % 2 === 1) {
+    voice('square', NOTE['E5'], time, 0.018, 0.018 + floodLevel * 0.012);
   }
 }
 
