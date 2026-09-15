@@ -1,0 +1,82 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: #000;
+  color: #00ff41;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#stage {
+  position: relative;
+  image-rendering: pixelated;
+  box-shadow: 0 0 0 2px #00521c, 0 0 40px rgba(0, 255, 65, 0.18);
+}
+
+#screen {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #000;
+}
+
+/* CRT: scanlines, aperture-grille tint, vignette, and a slow flicker. */
+#crt {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0) 0px,
+      rgba(0, 0, 0, 0) 2px,
+      rgba(0, 0, 0, 0.32) 3px,
+      rgba(0, 0, 0, 0.32) 4px
+    ),
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.05),
+      rgba(0, 255, 0, 0.03) 1px,
+      rgba(0, 0, 255, 0.05) 2px
+    );
+  mix-blend-mode: multiply;
+}
+
+#vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0) 52%,
+    rgba(0, 0, 0, 0.55) 88%,
+    rgba(0, 0, 0, 0.85) 100%
+  );
+}
+
+#flicker {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(0, 255, 65, 0.03);
+  animation: flicker 5.5s infinite steps(1);
+}
+
+@keyframes flicker {
+  0%, 92%, 100% { opacity: 0.25; }
+  93% { opacity: 0.6; }
+  94% { opacity: 0.1; }
+  95% { opacity: 0.55; }
+  96% { opacity: 0.2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #flicker { animation: none; }
+}
