@@ -76,7 +76,7 @@ rendering at all, which is what makes 300-trial batches take ~6 seconds.
 `game.state` is one of:
 
 ```
-boot -> title -> play <-> puzzle
+boot -> title -> briefingMission -> briefingFlood -> briefingControls -> play <-> puzzle
                   |
                   +-> dead | win  --(R)--> play
 ```

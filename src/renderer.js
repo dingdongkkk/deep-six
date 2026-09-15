@@ -27,6 +27,9 @@ export function render(g, game) {
 
   if (game.state === 'boot') { drawBoot(g, game); return; }
   if (game.state === 'title') { drawTitle(g, game); return; }
+  if (game.state === 'briefingMission') { drawMissionBriefing(g, game); return; }
+  if (game.state === 'briefingFlood') { drawFloodBriefing(g, game); return; }
+  if (game.state === 'briefingControls') { drawControlsBriefing(g, game); return; }
 
   const cam = camera(game);
   drawWorld(g, game, cam);
@@ -477,6 +480,99 @@ function drawTitle(g, game) {
   const spr = SPR.octo[Math.floor(t * 3) % 2 === 0 ? 'u' : 'p'][Math.floor(t * 4) % 3];
   g.drawImage(spr, 20, 180, 32, 32);
   g.drawImage(spr, VIEW_W - 52, 180, 32, 32);
+}
+
+function briefingFrame(g, page, title, color = 'g') {
+  g.strokeStyle = '#00521c';
+  g.strokeRect(8.5, 8.5, 303, 222);
+  drawText(g, `K-22 BRIEFING // ${page}/3`, 16, 15, 'm');
+  drawText(g, title, VIEW_W - 16 - textWidth(title), 15, color);
+  g.fillStyle = '#00521c';
+  g.fillRect(16, 28, 288, 1);
+}
+
+function briefingNext(g, game, text) {
+  if (Math.floor(game.time * 2) % 2 === 0) {
+    drawTextCentered(g, `> ${text}`, VIEW_W / 2, 216, 'g');
+  }
+}
+
+function drawMissionBriefing(g, game) {
+  briefingFrame(g, 1, 'MISSION');
+  drawTextCentered(g, 'ESCAPE FACILITY K-22', VIEW_W / 2, 39, 'w', 2);
+
+  // Visual route: diver -> three keys -> exit.
+  g.fillStyle = '#00230d';
+  g.fillRect(19, 65, 282, 57);
+  g.strokeStyle = '#00a82c';
+  g.setLineDash([4, 4]);
+  g.beginPath(); g.moveTo(49, 91); g.lineTo(270, 91); g.stroke();
+  g.setLineDash([]);
+  g.drawImage(SPR.diver.right[0], 27, 79, 24, 24);
+  for (let i = 0; i < 3; i++) {
+    const col = ['r', 'y', 'c'][i];
+    g.drawImage(SPR.key[col], 90 + i * 45, 81, 20, 20);
+    drawTextCentered(g, String(i + 1), 100 + i * 45, 105, col);
+  }
+  g.drawImage(SPR.doorOpen, 256, 75, 32, 32);
+
+  drawTextCentered(g, 'FIND 3 SECURITY CONSOLES', VIEW_W / 2, 136, 'c');
+  drawTextCentered(g, 'SOLVE EACH TASK. CLAIM EACH KEY.', VIEW_W / 2, 150, 'm');
+  drawTextCentered(g, 'ALL 3 KEYS OPEN THE ESCAPE HATCH.', VIEW_W / 2, 164, 'g');
+  g.drawImage(SPR.octo.p[1], 21, 178, 28, 28);
+  drawText(g, 'SPECIMEN 22 HUNTS WHILE YOU SOLVE.', 58, 186, 'r');
+  briefingNext(g, game, 'NEXT: FLOOD PROTOCOL');
+}
+
+function drawFloodBriefing(g, game) {
+  briefingFrame(g, 2, 'FLOOD PROTOCOL', 'c');
+  const x = 40, y = 43, w = 240, h = 104;
+  g.fillStyle = '#00131c'; g.fillRect(x, y, w, h);
+  g.strokeStyle = '#00a82c'; g.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+  const demo = 0.18 + ((game.time * 0.08) % 0.68);
+  const waterY = Math.round(y + h * (1 - demo));
+  g.globalAlpha = 0.45; g.fillStyle = '#063d52';
+  g.fillRect(x + 2, waterY, w - 4, y + h - waterY - 2);
+  g.globalAlpha = 1; g.fillStyle = '#29e0ff'; g.fillRect(x + 2, waterY, w - 4, 1);
+  for (let bx = x + 8; bx < x + w - 8; bx += 18) {
+    g.fillRect(bx + Math.round(Math.sin(game.time * 3 + bx) * 2), waterY + 4, 8, 1);
+  }
+  g.drawImage(SPR.diver.down[0], 148, 88, 24, 24);
+  drawText(g, 'LEAK', x + 8, y + 8, 'r');
+  drawText(g, 'O2', x + w - 42, y + 8, 'c');
+  g.fillStyle = '#00230d'; g.fillRect(x + w - 42, y + 19, 31, 5);
+  g.fillStyle = '#29e0ff'; g.fillRect(x + w - 41, y + 20, 29, 3);
+
+  drawText(g, '00:50', 29, 159, 'y');
+  drawText(g, 'WATER STARTS RISING', 83, 159, 'm');
+  drawText(g, '02:00', 29, 173, 'r');
+  drawText(g, 'FACILITY FULLY FLOODED', 83, 173, 'm');
+  drawText(g, 'O2', 29, 187, 'c');
+  drawText(g, '28 SEC AIR / RECOVERS ABOVE WATER', 56, 187, 'm');
+  drawTextCentered(g, 'UNDERWATER SPEED: 90%', VIEW_W / 2, 201, 'c');
+  briefingNext(g, game, 'NEXT: CONTROLS');
+}
+
+function keycap(g, label, x, y, w = 34) {
+  g.fillStyle = '#00230d'; g.fillRect(x, y, w, 19);
+  g.strokeStyle = '#00a82c'; g.strokeRect(x + 0.5, y + 0.5, w - 1, 18);
+  drawTextCentered(g, label, x + w / 2, y + 6, 'w');
+}
+
+function drawControlsBriefing(g, game) {
+  briefingFrame(g, 3, 'DIVE CONTROLS', 'c');
+  drawTextCentered(g, 'STAY QUIET. KEEP MOVING.', VIEW_W / 2, 40, 'm');
+  keycap(g, 'W', 57, 58, 26); keycap(g, 'A', 29, 79, 26);
+  keycap(g, 'S', 57, 79, 26); keycap(g, 'D', 85, 79, 26);
+  drawText(g, 'SWIM / 8 DIRECTIONS', 133, 73, 'g');
+  keycap(g, 'SHIFT', 29, 111, 82);
+  drawText(g, 'SPRINT - FAST, BUT LOUD', 133, 117, 'y');
+  keycap(g, 'SPACE', 29, 143, 82);
+  drawText(g, 'THRUSTER DASH - ONE USE', 133, 149, 'c');
+  keycap(g, 'ESC/Q', 29, 175, 82);
+  drawText(g, 'LEAVE TASK / KEEP PROGRESS', 133, 181, 'm');
+  drawTextCentered(g, 'WATCH O2, WATER, STAMINA AND SONAR.', VIEW_W / 2, 202, 'r');
+  briefingNext(g, game, 'BEGIN DIVE');
 }
 
 function drawDead(g, game) {
