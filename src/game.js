@@ -162,6 +162,12 @@ export class Game {
   onKeyDown(code) {
     this.keys[code] = true;
     unlockAudio();
+    // Audio is a global control, including while a console owns puzzle input.
+    if (code === 'KeyM') {
+      setEnabled(!isEnabled());
+      this.say(isEnabled() ? 'AUDIO ON' : 'AUDIO MUTED', 1.2);
+      return;
+    }
 
     // A click can land as both pointerdown and keydown; without this guard a
     // single tap would blow straight through the splash screens.
@@ -199,10 +205,6 @@ export class Game {
     }
 
     if (this.state === 'play' && code === 'Space') this.tryDash();
-    if (code === 'KeyM') {
-      setEnabled(!isEnabled());
-      this.say(isEnabled() ? 'AUDIO ON' : 'AUDIO MUTED', 1.2);
-    }
   }
 
   onKeyUp(code) {
