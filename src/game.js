@@ -59,6 +59,7 @@ export const TUNING = {
   FLOOD_FULL: 120,
   OXYGEN_TIME: 28,
   OXYGEN_RECOVER: 8,
+  WATER_SPEED_SCALE: 0.90,
 };
 
 const LIGHT_RADIUS = 82;
@@ -194,6 +195,18 @@ export class Game {
       return;
     }
     if (this.state === 'title' && settled) {
+      this.go('briefingMission');
+      return;
+    }
+    if (this.state === 'briefingMission' && settled) {
+      this.go('briefingFlood');
+      return;
+    }
+    if (this.state === 'briefingFlood' && settled) {
+      this.go('briefingControls');
+      return;
+    }
+    if (this.state === 'briefingControls' && settled) {
       this.reset();
       this.go('play');
       startMusic();
@@ -358,7 +371,8 @@ export class Game {
       if (p.staminaLock === 0) p.stamina = Math.min(100, p.stamina + TUNING.STAMINA_REGEN * dt);
     }
 
-    const speed = p.sprinting ? TUNING.PLAYER_SPRINT : TUNING.PLAYER_WALK;
+    const baseSpeed = p.sprinting ? TUNING.PLAYER_SPRINT : TUNING.PLAYER_WALK;
+    const speed = baseSpeed * (this.inWater ? TUNING.WATER_SPEED_SCALE : 1);
     p.moving = dx !== 0 || dy !== 0;
 
     if (p.moving) {
