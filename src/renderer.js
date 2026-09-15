@@ -2,6 +2,7 @@ import { SPR } from './sprites.js';
 import { drawText, drawTextCentered, textWidth, CHAR_W } from './font.js';
 import { TILE, MAP_W, MAP_H, FLOOR, isSolid, roomAt, EXIT } from './map.js';
 import { VIEW_W, VIEW_H } from './game.js';
+import { isEnabled } from './audio.js';
 
 const MAP_PX_W = MAP_W * TILE;
 const MAP_PX_H = MAP_H * TILE;
@@ -177,6 +178,10 @@ function drawHud(g, game) {
   drawText(g, scoreStr, VIEW_W - 4 - textWidth(scoreStr), 3, 'g');
 
   // Stamina.
+  g.fillStyle = '#000000';
+  g.fillRect(0, VIEW_H - 17, 244, 17);
+  g.fillStyle = '#00521c';
+  g.fillRect(0, VIEW_H - 18, 244, 1);
   drawText(g, 'PWR', 4, VIEW_H - 11, 'm');
   g.fillStyle = '#00230d';
   g.fillRect(26, VIEW_H - 10, 62, 6);
@@ -197,6 +202,10 @@ function drawHud(g, game) {
   g.fillStyle = ready ? '#000000' : '#00521c';
   g.fillRect(pipX + 2, VIEW_H - 8, 10, 2);
   if (!ready) drawText(g, 'SPENT', pipX + 18, VIEW_H - 11, 'd');
+  drawText(g, fmt(game.elapsed), 207, VIEW_H - 11, 'g');
+  const alert = game.octo.mode === 'hunt';
+  drawText(g, alert ? '!! CONTACT' : 'SONAR LIVE', 251, 178, alert ? 'r' : 'm');
+  drawText(g, isEnabled() ? 'M AUDIO ON' : 'M MUTED', 4, 18, 'm');
 
   if (game.messageT > 0) {
     const alphaBlink = game.messageT > 0.4 || Math.floor(game.time * 10) % 2 === 0;
@@ -361,8 +370,16 @@ function lastLen(lines, chars) {
 
 function drawTitle(g, game) {
   const t = game.time;
-  drawTextCentered(g, 'DEEP SIX', VIEW_W / 2, 34, 'g', 3);
-  drawTextCentered(g, 'FACILITY K-22 // CONTAINMENT FAILURE', VIEW_W / 2, 66, 'm');
+  g.strokeStyle = '#00521c';
+  g.strokeRect(8.5, 8.5, 303, 222);
+  drawText(g, 'AQUALAB / K-22', 16, 16, 'm');
+  drawText(g, 'SIGNAL LOST', 238, 16, 'r');
+  // Offset bitmap lettering supplies a crisp arcade extrusion.
+  drawTextCentered(g, 'DEEP SIX', VIEW_W / 2 + 2, 42, 'd', 3);
+  drawTextCentered(g, 'DEEP SIX', VIEW_W / 2, 39, 'g', 3);
+  drawTextCentered(g, 'SUBMERGED. HUNTED. STILL ALIVE.', VIEW_W / 2, 69, 'm');
+  g.fillStyle = '#00521c';
+  g.fillRect(24, 85, 272, 1);
 
   const y = 96;
   drawTextCentered(g, 'A GIANT OCTOPUS IS HUNTING YOU.', VIEW_W / 2, y, 'w');
@@ -371,10 +388,14 @@ function drawTitle(g, game) {
 
   drawTextCentered(g, 'WASD - SWIM    SHIFT - SPRINT [LOUD]', VIEW_W / 2, y + 44, 'm');
   drawTextCentered(g, 'SPACE - THRUSTER DASH [ONCE PER DIVE]', VIEW_W / 2, y + 56, 'c');
-  drawTextCentered(g, 'CONSOLES GUARD THE KEYCARDS', VIEW_W / 2, y + 68, 'm');
+  drawTextCentered(g, 'M - AUDIO ON/OFF', VIEW_W / 2, y + 68, 'm');
+
+  g.fillStyle = '#00230d';
+  g.fillRect(77, 193, 166, 30);
+  drawTextCentered(g, 'TEAM 22 / RETRO', VIEW_W / 2, 198, 'm');
 
   if (Math.floor(t * 2) % 2 === 0) {
-    drawTextCentered(g, 'PRESS ANY KEY TO DIVE', VIEW_W / 2, VIEW_H - 24, 'g');
+    drawTextCentered(g, '> PRESS ANY KEY TO DIVE', VIEW_W / 2, 212, 'g');
   }
 
   const spr = SPR.octo[Math.floor(t * 3) % 2 === 0 ? 'u' : 'p'][Math.floor(t * 4) % 3];

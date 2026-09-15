@@ -15,6 +15,7 @@ let nextNoteTime = 0;
 let tempo = 0.145;      // seconds per 16th
 let intensity = 0;      // 0 = calm, 1 = octopus on you
 let timer = null;
+let drumBuffer = null;
 
 const NOTE = {};
 (() => {
@@ -26,13 +27,19 @@ const NOTE = {};
   }
 })();
 
-// Minor-key bass riff, one bar of 16 steps. null = rest.
-const BASS = ['A1', null, 'A1', null, 'C2', null, 'A1', null,
-              'G1', null, 'G1', null, 'F1', null, 'E1', null];
-const ARP_CALM = ['A3', 'C4', 'E4', 'C4', 'A3', 'C4', 'E4', 'G4',
-                  'F3', 'A3', 'C4', 'A3', 'E3', 'G3', 'B3', 'G3'];
-const ARP_HUNT = ['A4', 'E4', 'A4', 'C5', 'A4', 'E4', 'A4', 'C5',
-                  'G4', 'D4', 'G4', 'B4', 'F4', 'C4', 'E4', 'A4'];
+// Eight-bar A-minor theme: a submerged pulse, then a rising answer.
+const CHORDS = [
+  ['A1', 'A3', 'C4', 'E4'], ['F1', 'F3', 'A3', 'C4'],
+  ['C2', 'G3', 'C4', 'E4'], ['E1', 'Gs3', 'B3', 'E4'],
+  ['A1', 'A3', 'C4', 'E4'], ['F1', 'A3', 'C4', 'F4'],
+  ['D2', 'A3', 'D4', 'F4'], ['E1', 'Gs3', 'B3', 'E4'],
+];
+const MELODY = [
+  ['E5', null, 'C5', 'B4'], ['A4', null, 'C5', null],
+  ['G4', 'C5', 'E5', null], ['B4', null, 'Gs4', 'B4'],
+  ['E5', 'G5', 'E5', 'C5'], ['F5', null, 'E5', 'C5'],
+  ['D5', 'F5', 'E5', 'D5'], ['B4', 'Gs4', 'B4', null],
+];
 
 export function initAudio() {
   if (ctx) return;
@@ -48,6 +55,9 @@ export function initAudio() {
   sfxGain = ctx.createGain();
   sfxGain.gain.value = 0.85;
   sfxGain.connect(master);
+  drumBuffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.15), ctx.sampleRate);
+  const samples = drumBuffer.getChannelData(0);
+  for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1;
 }
 
 // Browsers only allow audio after a gesture, so the first keypress calls this.
@@ -60,7 +70,7 @@ export function unlockAudio() {
 
 export function setEnabled(on) {
   enabled = on;
-  if (master) master.gain.value = on ? 0.5 : 0;
+  if (master) master.gain.setTargetAtTime(on ? 0.5 : 0, ctx.currentTime, 0.025);
 }
 
 export function isEnabled() {
@@ -147,39 +157,66 @@ export function setIntensity(v) {
 }
 
 function scheduler() {
-  if (!ctx || !started) return;
+  if (!ctx || !started || ctx.state !== 'running') return;
+  // A background tab can miss minutes of ticks. Never replay that backlog.
+  if (nextNoteTime < ctx.currentTime - 0.2) nextNoteTime = ctx.currentTime;
   while (nextNoteTime < ctx.currentTime + 0.12) {
     scheduleStep(step, nextNoteTime);
     nextNoteTime += tempo;
-    step = (step + 1) % 16;
+    step = (step + 1) % 128;
   }
 }
 
 function scheduleStep(i, time) {
   if (!enabled) return;
-  const bass = BASS[i];
-  if (bass) voice('square', NOTE[bass], time, tempo * 1.6, 0.20);
-
-  const arp = (intensity > 0.45 ? ARP_HUNT : ARP_CALM)[i];
-  if (arp && (i % 2 === 0 || intensity > 0.45)) {
-    voice('triangle', NOTE[arp], time, tempo * 0.9, 0.11 + 0.06 * intensity);
+  const bar = Math.floor(i / 16), beat = i % 16;
+  const chord = CHORDS[bar];
+  if (beat % 4 === 0 || (intensity > 0.45 && beat % 4 === 2)) {
+    voice('triangle', NOTE[chord[0]] * (beat === 10 ? 2 : 1), time, tempo * 2.4, 0.30);
   }
-
-  // Hi-hat-ish tick keeps the pulse readable at low intensity.
-  if (i % 4 === 2) voice('square', NOTE['A5'], time, 0.02, 0.03);
-
-  // Danger stinger.
-  if (intensity > 0.8 && i % 8 === 0) {
-    voice('sawtooth', NOTE['A2'], time, tempo * 3, 0.10);
+  if (beat % 2 === 0 || intensity > 0.45) {
+    const note = NOTE[chord[1 + [0, 1, 2, 1, 0, 2, 1, 2][Math.floor(beat / 2)]]];
+    voice('square', note, time, tempo * 0.75, 0.055 + intensity * 0.025);
+  }
+  if (beat % 4 === 0) {
+    const note = NOTE[MELODY[bar][beat / 4]];
+    voice('triangle', note, time, tempo * 2.8, 0.12);
+    // A quiet, single echo gives the melody an underwater space.
+    voice('triangle', note, time + tempo * 3, tempo * 1.8, 0.025);
+  }
+  if (beat % 8 === 0 || (intensity > 0.6 && beat === 10)) {
+    voice('sine', 100, time, 0.12, 0.25, 35);
+  }
+  if (beat % 8 === 4) percussion(time, 0.09, 0.08 + intensity * 0.05, 1500);
+  if (beat % 4 === 2 || intensity > 0.55 && beat % 2 === 1) {
+    percussion(time, 0.025, 0.035, 6500);
+  }
+  if (intensity > 0.8 && beat % 4 === 0) {
+    voice('square', NOTE[chord[2]] * 2, time, tempo * 0.6, 0.065);
   }
 }
 
-function voice(type, freq, time, dur, vol) {
+function percussion(time, dur, vol, hz) {
+  const src = ctx.createBufferSource();
+  src.buffer = drumBuffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'highpass';
+  filter.frequency.value = hz;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(vol, time);
+  gain.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+  src.connect(filter); filter.connect(gain); gain.connect(musicGain);
+  src.start(time); src.stop(time + dur);
+  src.onended = () => { src.disconnect(); filter.disconnect(); gain.disconnect(); };
+}
+
+function voice(type, freq, time, dur, vol, endFreq) {
   if (!freq) return;
   const osc = ctx.createOscillator();
   const g = ctx.createGain();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, time);
+  if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, time + dur);
   g.gain.setValueAtTime(0.0001, time);
   g.gain.exponentialRampToValueAtTime(vol, time + 0.01);
   g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
@@ -187,4 +224,5 @@ function voice(type, freq, time, dur, vol) {
   g.connect(musicGain);
   osc.start(time);
   osc.stop(time + dur + 0.02);
+  osc.onended = () => { osc.disconnect(); g.disconnect(); };
 }
