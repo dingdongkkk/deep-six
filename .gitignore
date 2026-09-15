@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+._*
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Node (not used today, but keeps stray installs out)
+node_modules/
+npm-debug.log*
